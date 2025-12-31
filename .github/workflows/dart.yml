@@ -19,16 +19,14 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      # 🔥 BƯỚC QUAN TRỌNG: generate ios + Podfile
       - name: Generate iOS files
         run: flutter build ios --release || true
-
-      # 🔥 FIX iOS VERSION = 15
-      - name: Set iOS platform to 15.0
+      
+      - name: Force iOS platform to 15.0
         run: |
           cd ios
-          sed -i '' "s/platform :ios, '[0-9.]\\+'/platform :ios, '15.0'/" Podfile
-
+          sed -i '' "1s/^/platform :ios, '15.0'\n\n/" Podfile
+      
       - name: Install pods
         run: |
           cd ios
