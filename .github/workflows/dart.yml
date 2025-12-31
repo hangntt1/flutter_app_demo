@@ -1,46 +1,70 @@
-name: iOS-ipa-build
+name: iOS IPA Build
 
 on:
   workflow_dispatch:
 
 jobs:
   build-ios:
+    name: 🍎 Build iOS IPA
     runs-on: macos-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      # 1️⃣ Checkout source
+      - name: Checkout source
+        uses: actions/checkout@v4
 
+      # 2️⃣ Setup Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          architecture: x64
 
+      # 3️⃣ Get packages
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Generate iOS files
-        run: flutter build ios --release || true
-      
-      - name: Force iOS platform to 15.0
+      # 4️⃣ 🔧 FIX iOS DEPLOYMENT TARGET = 15.0
+      - name: Set iOS deployment target to 15.0
         run: |
           cd ios
-          sed -i '' "1s/^/platform :ios, '15.0'\n\n/" Podfile
-      
-      - name: Install pods
+          if [ ! -f Podfile ]; then
+            flutter build ios --config-only
+          fi
+
+          sed -i '' "s/# platform :ios, '.*'/platform :ios, '15.0'/" Podfile
+          sed -i '' "s/platform :ios, '.*'/platform :ios, '15.0'/" Podfile
+
+          cat Podfile
+
+      # 5️⃣ Pod install
+      - name: Install CocoaPods
         run: |
           cd ios
+          pod repo update
           pod install
 
-      # ✅ BUILD IPA
-      - name: Build IPA
-        run: flutter build ipa --release --no-codesign
+      # 6️⃣ Build iOS (NO CODESIGN)
+      - name: Build iOS app
+        run: flutter build ios --release --no-codesign
 
-      - name: Upload IPA
+      # 7️⃣ Create IPA manually
+      - name: Create IPA
+        run: |
+          cd build/ios/iphoneos
+          mkdir Payload
+          mv Runner.app Payload/
+          zip -r FlutterIpaExport.ipa Payload
+
+      # 8️⃣ Upload IPA to GitHub Release
+      - name: Upload IPA to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/ios/ipa/*.ipa
+          file: build/ios/iphoneos/FlutterIpaExport.ipa
           tag: v1.0
           overwrite: true
-          body: "Auto build IPA from GitHub Actions"
+          body: |
+            🚀 iOS IPA build (no codesign)
+            - Deployment target: iOS 15
+            - Built with Flutter
